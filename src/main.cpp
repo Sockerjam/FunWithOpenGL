@@ -11,41 +11,29 @@
 
 const int FPS = 60;
 const float TIME_MS_FRAME = 1000.0 / FPS;
+Camera camera;
 
 void setViewPort(GLFWwindow* window, int width, int height) {
   glViewport(0, 0, width, height);
 }
 
-void processInput(GLFWwindow* window, Camera& camera) {
+void processInput(GLFWwindow* window, Camera& camera, float deltaTime) {
   if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
     glfwSetWindowShouldClose(window, true);
     return;
   } else if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
-    camera.setDirection(glm::vec3{1.0f, 0.0f, 0.0f});
+    camera.navigateLeft(deltaTime);
     return;
   } else if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
-    camera.setDirection(glm::vec3{-1, 0, 0});
+    camera.navigateRight(deltaTime);
     return;
   } else if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
-    camera.setDirection(glm::vec3{0, 0, -1});
+    camera.navigateBackwards(deltaTime);
     return;
   } else if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
-    camera.setDirection(glm::vec3{0, 0, 1});
-    return;
-  } else {
-    camera.setDirection(glm::vec3(0, 0, 0));
+    camera.navigateForward(deltaTime);
     return;
   }
-
-}
-
-glm::mat4 transformation(float time) {
-  float radians = glm::radians(time) * 20;
-  glm::mat4 transformation = glm::mat4(1.0);
-  transformation = glm::translate(transformation, glm::vec3(0, 0, 0));
-  transformation = glm::rotate(transformation, radians, glm::vec3(0, 0, 1));
-  transformation = glm::scale(transformation, glm::vec3(1, 1, 1));
-  return transformation;
 }
 
 glm::mat4 modelMatrix(float time) {
@@ -171,38 +159,44 @@ int main() {
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
   glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indicies), indicies, GL_STATIC_DRAW);
 
-  Camera camera;
-
-  glm::mat4 view = viewMatrix();
 
   float deltaTime = 0;
   float msPreviousFrame = 0;
 
-  while (!glfwWindowShouldClose(window)) {
+  glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+  // Set the callback with a lambda that retrieves the camera instance
+  glfwSetCursorPosCallback(window, [](GLFWwindow* window, double xpos, double ypos) {
+    camera.mouse_callback(window, xpos, ypos);  // Ensure this is a non-static member function
+  });
 
+  while (!glfwWindowShouldClose(window)) {
+  
     int startTime = glfwGetTime() * 1000.0f;
 
     float time = glfwGetTime(); 
-    processInput(window, camera);
+    processInput(window, camera, deltaTime);
     glEnable(GL_DEPTH_TEST);
-    glClearColor(0.2, 0.2, 0.2, 1);
+    glClearColor(0.0, 0.0, 0.0, 1);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    view = glm::translate(view, camera.getDirection() * deltaTime);
-
     shader.use();
-    
+
+    const float radius = 10.0f;
+    float camX = sin(glfwGetTime()) * radius;
+    float camZ = cos(glfwGetTime()) * radius;
+    glm::mat4 view;
+    view = glm::lookAt(glm::vec3(camX, 0.0, camZ), glm::vec3(0.0, 0.0, 0.0),
+                       glm::vec3(0.0, 1.0, 0.0));
 
     // shader.setTransformationMatrix("model", modelMatrix(time));
-    shader.setTransformationMatrix("view", view);
+    shader.setTransformationMatrix("view", camera.getCamera());
     shader.setTransformationMatrix("projection", projectionMatrix());
 
     glBindVertexArray(VAO);
-    glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
 
     for(int i = 0; i < 10; i++) {
       glm::mat4 model = glm::mat4(1.0);
-      model = glm::translate(model, glm::vec3(cubePositions[i].x, cubePositions[i].y, cubePositions[i].z - 3));
+      model = glm::translate(model, glm::vec3(cubePositions[i]));
 
       if (i % 3 == 0) {
         float animation = sin(time) / 2 + 0.5;
