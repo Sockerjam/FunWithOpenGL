@@ -4,6 +4,7 @@
 #include "glm/geometric.hpp"
 #include "glm/trigonometric.hpp"
 #include <glm/glm.hpp>
+#include <ios>
 #include <iostream>
 
 class Camera {
@@ -77,7 +78,25 @@ public:
   }
 
   glm::mat4 getCamera() {
-    view = glm::lookAt(eye, eye + direction, up);
+    glm::vec3 target = eye + direction;
+    glm::vec3 directionVector = glm::normalize(eye - target);
+    glm::vec3 rightVector = glm::cross(glm::normalize(up), directionVector);
+    glm::vec3 upVector = glm::cross(directionVector, rightVector);
+
+    glm::mat4 rotation = glm::mat4(1.0);
+    rotation[0] = glm::vec4(rightVector, 0);
+    rotation[1] = glm::vec4(upVector, 0);
+    rotation[2] = glm::vec4(directionVector, 0);
+
+    glm::mat4 translate = glm::mat4(1.0);
+
+    translate = glm::translate(translate, -eye);
+
+    glm::mat4 lookAtMatrix = glm::transpose(rotation) * translate;
+
+    view = lookAtMatrix;
+
+    // view = glm::lookAt(eye, eye + direction, up);
     return view;
   }
 };
